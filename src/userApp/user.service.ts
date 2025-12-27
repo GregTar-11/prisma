@@ -3,6 +3,8 @@ import type { CreateUser } from "./user.types";
 import { findAllUsers, findUserByEmail, findUserByPhone, userCreate } from "./user.repository";
 import bcrypt from 'bcrypt'
 import { errors } from "../config/errorCodes";
+import jwt from 'jsonwebtoken'
+import { SECRET_KEY } from "../config/token";
 
 export async function registerUserService(data: CreateUser) {
     const { firstName, lastName, email, phone, password, avatar } = data
@@ -45,4 +47,28 @@ export async function getAllUsersService() {
     catch (err: any) {
         throw new Error(errors.P1005)
     }
+}
+
+export async function loginUserService(email: string, password: string) {
+    if (!email || !password) {
+        throw new Error(errors.P1004)
+    }
+
+    const user = await findUserByEmail(email)
+    if (!user) {
+        throw new Error(errors.P1004)
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    const { password: _password, ...safeUser } = user
+
+    const token = jwt.sign({
+        id: safeUser.id,
+        email: safeUser.email
+    },
+    SECRET_KEY,
+    {expiresIn:'1h'}
+    )
+
+    return {user:safeUser,token}
 }
